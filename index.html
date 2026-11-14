@@ -230,7 +230,7 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
 var $=function(id){return document.getElementById(id)};
 var synth=window.speechSynthesis||null;
 var KEY="ccg:v1";
-var RATES=[0.8,1,1.2,1.4,1.6];
+var RATES=[0.7,0.8,0.9,1,1.2,1.4];
 var LANG={ro:"ro-RO",en:"en-GB"};
 var store={pos:{},rate:1,voices:{ro:"",en:""},last:"",size:19,filter:""};
 try{var raw=localStorage.getItem(KEY); if(raw){var o=JSON.parse(raw); for(var k in o) store[k]=o[k];}}catch(e){}
@@ -556,22 +556,50 @@ function hearShow(tip,txt,linger){
   clearTimeout(hideT); $("hear").hidden=false; $("hearTip").textContent=tip; $("hearText").textContent=txt||"";
   if(linger) hideT=setTimeout(function(){ $("hear").hidden=true; },3500);
 }
+function attach(d){
+  dict=d; $("mic").hidden=false; $("micHint").hidden=false;
+  d.onPartial(function(e){ if(listening) hearShow("Ascult…",e.text); });
+  d.onFinal(function(e){
+    if(!listening||heard) return; heard=true;
+    var msg; try{ msg=command(e.text); }catch(err){ msg="Comanda nu a mers."; }
+    hearShow("„"+e.text+"”",msg,true);
+    try{ d.stop(); }catch(err){}
+  });
+  d.onState(function(e){
+    listening=e.state==="listening"; $("mic").classList.toggle("live",listening);
+    if(!listening&&!heard){ heard=true;
+      if(e.reason==="denied"){ $("mic").hidden=true; $("micHint").hidden=true; hearShow("Microfonul nu a fost permis.","Dă voie microfonului din setările site-ului, apoi reîncarcă pagina.",true); }
+      else hearShow("N-am auzit nicio comandă.","Apasă din nou pe microfon.",true);
+    }
+  });
+}
+/* On the site itself (outside Claude) the phone's own speech recognition listens for commands. */
+function speechAdapter(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return null;
+  var r=new SR(), fp=null, ff=null, fs=null, denied=false;
+  r.lang="ro-RO"; r.interimResults=true; r.continuous=false; r.maxAlternatives=4;
+  function best(res){
+    for(var i=0;i<res.length;i++){ var t=res[i].transcript, p=" "+plain(t)+" ";
+      if(/ (stop|opreste|pauza|play|reda|porneste|continua|inapoi|cauta|mai repede|mai incet) /.test(p)||findBook(t)) return t; }
+    return res[0].transcript;
+  }
+  r.onresult=function(ev){
+    var res=ev.results[ev.results.length-1];
+    if(res.isFinal){ if(ff) ff({text:best(res).trim()}); } else if(fp) fp({text:res[0].transcript});
+  };
+  r.onstart=function(){ denied=false; if(fs) fs({state:"listening"}); };
+  r.onerror=function(ev){ if(ev.error==="not-allowed"||ev.error==="service-not-allowed") denied=true; };
+  r.onend=function(){ if(fs) fs({state:"idle",reason:denied?"denied":"stopped"}); };
+  return { start:function(){ return new Promise(function(ok,no){ try{ r.start(); ok(); }catch(e){ no(e); } }); },
+           stop:function(){ try{ r.stop(); }catch(e){} },
+           onPartial:function(f){fp=f}, onFinal:function(f){ff=f}, onState:function(f){fs=f} };
+}
 function setupDictation(tries){
-  if(!(window.claude&&typeof window.claude.use==="function")){ if(tries>0) setTimeout(function(){setupDictation(tries-1)},700); return; }
-  window.claude.use("dictation").then(function(d){
-    if(!d) return; dict=d; $("mic").hidden=false; $("micHint").hidden=false;
-    d.onPartial(function(e){ if(listening) hearShow("Ascult…",e.text); });
-    d.onFinal(function(e){
-      if(!listening||heard) return; heard=true;
-      var msg; try{ msg=command(e.text); }catch(err){ msg="Comanda nu a mers."; }
-      hearShow("„"+e.text+"”",msg,true);
-      try{ d.stop(); }catch(err){}
-    });
-    d.onState(function(e){
-      listening=e.state==="listening"; $("mic").classList.toggle("live",listening);
-      if(!listening&&!heard) hearShow("N-am auzit nicio comandă.","",true);
-    });
-  }).catch(function(){});
+  if(!(window.claude&&typeof window.claude.use==="function")){
+    if(tries>0){ setTimeout(function(){setupDictation(tries-1)},400); return; }
+    var ad=speechAdapter(); if(ad) attach(ad); return;
+  }
+  window.claude.use("dictation").then(function(d){ if(d) attach(d); }).catch(function(){});
 }
 $("mic").addEventListener("click",function(){
   if(!dict) return;
@@ -637,7 +665,7 @@ $("file").addEventListener("change",function(){
 });
 window.addEventListener("pagehide",function(){ if(synth){try{synth.cancel()}catch(e){}} });
 
-applySize(); rateLabel(); renderLibrary(); setupDictation(8);
+applySize(); rateLabel(); renderLibrary(); setupDictation(3);
 if(!synth){ var a=$("voiceAlert"); a.hidden=false; a.textContent="Browserul acesta nu poate citi cu voce tare. Deschide pagina în Chrome sau Safari."; }
 })();
 </script>
