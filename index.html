@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartea cu glas</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d6466">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a shelf of cloth-bound books, a reading column, and one fixed listening bar. */
+:root{
+  --bg:#e9eeec; --surface:#ffffff; --ink:#13282d; --muted:#586c70; --line:#cfd9d6;
+  --accent:#0d6466; --accent-ink:#ffffff; --mark:#f4e3a6; --mark-ink:#2a2205; --warn:#8a3b12; --warn-bg:#fbe9dc;
+  --wine:#6d1f2c; --pine:#1f4a3a; --navy:#1d3157; --slate:#44505c; --gilt:#e3c577;
+  --display:"Literata",Georgia,"Times New Roman",serif;
+  --ui:"Commissioner",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --read-size:19px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1b1f; --surface:#16292f; --ink:#e3ebe8; --muted:#94a8aa; --line:#294047;
+    --accent:#62c4ba; --accent-ink:#06211f; --mark:#57471a; --mark-ink:#fff4cf; --warn:#f2b48f; --warn-bg:#3a2216;
+    --wine:#7c2a38; --pine:#285c49; --navy:#2a4273; --slate:#55626f; --gilt:#e3c577;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1b1f; --surface:#16292f; --ink:#e3ebe8; --muted:#94a8aa; --line:#294047;
+  --accent:#62c4ba; --accent-ink:#06211f; --mark:#57471a; --mark-ink:#fff4cf; --warn:#f2b48f; --warn-bg:#3a2216;
+  --wine:#7c2a38; --pine:#285c49; --navy:#2a4273; --slate:#55626f; --gilt:#e3c577;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.45}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,a:focus-visible,select:focus-visible,label:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:680px;margin:0 auto;padding:0 18px}
+[hidden]{display:none!important}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:10px;min-height:56px}
+.back{display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:0 10px 0 4px;margin-left:-4px;color:var(--accent);font-weight:600;border-radius:10px}
+.top h1{font-family:var(--display);font-size:20px;font-weight:700;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.size{display:flex;gap:6px}
+.size button{min-width:44px;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-family:var(--display);font-weight:600}
+.size button:first-child{font-size:14px}.size button:last-child{font-size:19px}
+
+/* library */
+.lead{color:var(--muted);margin:18px 0 0;max-width:46ch}
+.resume{display:flex;align-items:center;gap:14px;width:100%;text-align:left;margin:18px 0 0;padding:14px 16px;background:var(--accent);color:var(--accent-ink);border-radius:14px}
+.resume small{display:block;opacity:.85;font-size:13px}
+.resume b{display:block;font-family:var(--display);font-size:18px;font-weight:600;line-height:1.25}
+.resume svg{flex:none}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:28px 0 12px}
+.shelf{display:flex;flex-direction:column;gap:12px;list-style:none;margin:0;padding:0}
+.book{display:flex;gap:16px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.cover{flex:none;width:76px;height:108px;border-radius:3px 7px 7px 3px;color:var(--gilt);padding:10px 8px 8px 14px;display:flex;flex-direction:column;justify-content:space-between;position:relative;box-shadow:inset 6px 0 0 rgba(0,0,0,.22),inset 7px 0 0 rgba(255,255,255,.12)}
+.cover i{font-style:normal;font-family:var(--display);font-weight:700;font-size:14px;line-height:1.1;overflow-wrap:anywhere}
+.cover u{text-decoration:none;font-size:9px;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;opacity:.9;border-top:1px solid currentColor;padding-top:5px}
+.wine{background:var(--wine)}.pine{background:var(--pine)}.navy{background:var(--navy)}.slate{background:var(--slate)}
+.meta{min-width:0;display:flex;flex-direction:column;gap:3px;justify-content:center;flex:1}
+.meta b{font-family:var(--display);font-size:20px;font-weight:700;line-height:1.2}
+.meta span{color:var(--muted);font-size:14px}
+.bar{height:5px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden}
+.bar em{display:block;height:100%;background:var(--accent);border-radius:3px}
+.add{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;margin:12px 0 0;border:1.5px dashed var(--muted);border-radius:14px;color:var(--ink);font-weight:600;cursor:pointer}
+.add input{position:absolute;opacity:0;width:1px;height:1px}
+.add:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.note{color:var(--muted);font-size:13.5px;margin:22px 0 40px;max-width:60ch}
+.note a{color:var(--accent)}
+.alert{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:12px 14px;margin:16px 0 0;font-size:14.5px}
+.alert b{display:block;margin-bottom:2px}
+
+/* book view */
+.bookhead{display:flex;gap:16px;align-items:center;margin:20px 0 6px}
+.bookhead .cover{width:92px;height:130px}
+.bookhead .cover i{font-size:16px}
+.bookhead h3{font-family:var(--display);font-size:26px;line-height:1.15;margin:0 0 4px;text-wrap:balance}
+.bookhead p{margin:0;color:var(--muted);font-size:14.5px}
+.chapters{list-style:none;margin:0 0 40px;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.chapters li+li{border-top:1px solid var(--line)}
+.chapters button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 16px;min-height:56px}
+.chapters .n{flex:none;width:26px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px}
+.chapters .t{flex:1;min-width:0;font-family:var(--display);font-size:17.5px;font-weight:600}
+.chapters .d{flex:none;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.chapters .here .t{color:var(--accent)}
+.chapters .here .d{color:var(--accent);font-weight:600}
+
+/* reader */
+#reader{padding-bottom:150px}
+.chtitle{font-family:var(--display);font-size:28px;line-height:1.15;margin:26px 0 4px;text-wrap:balance}
+.chsub{color:var(--muted);font-size:14px;margin:0 0 22px}
+.text{font-family:var(--display);font-size:var(--read-size);line-height:1.62;max-width:65ch}
+.text p{margin:0 0 .85em}
+.text p.sep{text-align:center;color:var(--muted);letter-spacing:.3em;margin:1.4em 0}
+.text span{border-radius:4px;cursor:pointer;-webkit-tap-highlight-color:transparent;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.text span.on{background:var(--mark);color:var(--mark-ink);box-shadow:0 0 0 3px var(--mark)}
+.endnav{display:flex;margin:26px 0 0}
+.endnav button{flex:1;min-height:50px;border:1px solid var(--line);background:var(--surface);border-radius:12px;font-weight:600;color:var(--accent)}
+
+/* listening bar */
+.player{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding:0 0 env(safe-area-inset-bottom,0)}
+.player .prog{height:4px;background:var(--line)}
+.player .prog em{display:block;height:100%;background:var(--accent);width:0}
+.player .wrap{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;padding-bottom:10px}
+.player .side{flex:1;display:flex}
+.player .side.r{justify-content:flex-end}
+.pill{min-width:58px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:22px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--bg)}
+.ctl{display:flex;align-items:center;gap:10px}
+.ctl .sk{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:var(--ink)}
+.ctl .pp{width:64px;height:64px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.status{font-size:13px;color:var(--muted);text-align:center;padding:0 18px 8px;margin-top:-4px;min-height:0}
+.status.bad{color:var(--warn)}
+
+/* sheet */
+.scrim{position:fixed;inset:0;z-index:9;background:rgba(6,18,20,.5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:680px;border-radius:18px 18px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom,0px));max-height:80%;overflow:auto}
+.sheet h4{font-family:var(--display);font-size:20px;margin:0 0 14px}
+.sheet label{display:block;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:16px 0 6px}
+.sheet select{width:100%;min-height:48px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 10px}
+.sheet p{font-size:14px;color:var(--muted);margin:10px 0 0}
+.sheet .row{display:flex;gap:10px;margin-top:20px}
+.sheet .row button{flex:1;min-height:48px;border-radius:12px;font-weight:600;border:1px solid var(--line)}
+.sheet .row .pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.mic{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);color:var(--accent)}
+.mic.live{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.hear{position:sticky;top:57px;z-index:4;background:var(--accent);color:var(--accent-ink);font-size:14.5px}
+.hear .wrap{padding-top:10px;padding-bottom:10px}
+.hear b{display:block;font-size:16px;min-height:1.4em}
+.find{display:flex;gap:8px;margin:18px 0 0}
+.find input{flex:1;min-width:0;min-height:48px;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.chips button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:20px;background:var(--surface);font-weight:600;font-size:14.5px}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.empty{color:var(--muted);padding:18px 4px}
+.tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:6px;color:var(--muted);vertical-align:2px}
+.hint{color:var(--muted);font-size:13.5px;margin:10px 0 0}
+@media (prefers-reduced-motion:no-preference){.player .prog em,.bar em{transition:width .3s}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <button class="back" id="back" hidden aria-label="Înapoi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span id="backLabel">Bibliotecă</span></button>
+  <h1 id="topTitle">Cartea cu glas</h1>
+  <div class="size" id="sizeCtl" hidden>
+    <button id="smaller" aria-label="Text mai mic">A</button>
+    <button id="bigger" aria-label="Text mai mare">A</button>
+  </div>
+  <button class="mic" id="mic" hidden aria-label="Comandă vocală"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg></button>
+</div></header>
+<div class="hear" id="hear" hidden role="status" aria-live="polite"><div class="wrap"><span id="hearTip">Ascult. Spune o comandă.</span><b id="hearText"></b></div></div>
+
+<main>
+  <section id="library" class="wrap">
+    <p class="lead">Alege o carte și apasă pe redare. Telefonul ți-o citește cu voce tare și ține minte unde ai rămas.</p>
+    <div id="voiceAlert" class="alert" hidden></div>
+    <button class="resume" id="resume" hidden>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a.6.6 0 00.92.5l10-6.5a.6.6 0 000-1L8.92 5a.6.6 0 00-.92.5z"/></svg>
+      <span><small>Continuă de unde ai rămas</small><b id="resumeTitle"></b></span>
+    </button>
+    <div class="find"><input type="search" id="q" placeholder="Caută titlu sau autor" aria-label="Caută în bibliotecă" autocomplete="off"></div>
+    <div class="chips" id="chips">
+      <button data-l="" aria-pressed="true">Toate</button><button data-l="ro" aria-pressed="false">Română</button><button data-l="en" aria-pressed="false">English</button>
+    </div>
+    <p class="hint" id="micHint" hidden>Apasă pe microfon și spune: „deschide Povești”, „caută Caragiale”, „play”, „stop”.</p>
+    <h2>Bibliotecă</h2>
+    <ul class="shelf" id="shelf"></ul>
+    <label class="add"><input type="file" id="file" accept=".txt,text/plain">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Adaugă o carte din telefon (.txt)</label>
+    <p class="note">Cărțile din bibliotecă sunt în domeniul public: autorii și traducătorul au murit de peste 70 de ani. Textele vin din edițiile digitizate de Project Gutenberg. La cărțile în română, ortografia de epocă a fost adusă ușor la zi ca vocea să le pronunțe corect.</p>
+  </section>
+
+  <section id="bookView" class="wrap" hidden>
+    <div class="bookhead">
+      <div class="cover" id="bvCover"><i></i><u></u></div>
+      <div><h3 id="bvTitle"></h3><p id="bvAuthor"></p><p id="bvEd"></p></div>
+    </div>
+    <h2 id="bvCount"></h2>
+    <ol class="chapters" id="chapters"></ol>
+  </section>
+
+  <section id="reader" class="wrap" hidden>
+    <h3 class="chtitle" id="chTitle"></h3>
+    <p class="chsub" id="chSub"></p>
+    <div class="text" id="text"></div>
+    <div class="endnav"><button id="nextCh">Capitolul următor</button></div>
+  </section>
+</main>
+
+<div class="player" id="player" hidden>
+  <div class="prog"><em id="prog"></em></div>
+  <div class="wrap">
+    <div class="side"><button class="pill" id="rate" aria-label="Viteza de citire">1×</button></div>
+    <div class="ctl">
+      <button class="sk" id="prev" aria-label="Propoziția anterioară"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2.4v14H6zM20 5.6v12.8a.5.5 0 01-.8.4L10 12.4a.5.5 0 010-.8l9.2-6.4a.5.5 0 01.8.4z"/></svg></button>
+      <button class="pp" id="play" aria-label="Redă"><svg id="icoPlay" width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a.6.6 0 00.92.5l10-6.5a.6.6 0 000-1L8.92 5a.6.6 0 00-.92.5z"/></svg><svg id="icoPause" hidden width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg></button>
+      <button class="sk" id="next" aria-label="Propoziția următoare"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 5H18v14h-2.4zM4 5.6v12.8a.5.5 0 00.8.4l9.2-6.4a.5.5 0 000-.8L4.8 5.2a.5.5 0 00-.8.4z"/></svg></button>
+    </div>
+    <div class="side r"><button class="pill" id="voiceBtn">Voce</button></div>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <h4 id="sheetTitle">Vocile care citesc</h4>
+    <label for="voiceRo">Pentru cărțile în română</label>
+    <select id="voiceRo"></select>
+    <label for="voiceEn">Pentru cărțile în engleză</label>
+    <select id="voiceEn"></select>
+    <p id="voiceHelp">Vocile vin din telefon. Altele se instalează din setările de redare vocală a textului.</p>
+    <div class="row"><button id="voiceTest">Ascultă o probă</button><button class="pri" id="sheetClose">Gata</button></div>
+  </div>
+</div>
+
+<script src="books.js"></script>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var synth=window.speechSynthesis||null;
+var KEY="ccg:v1";
+var RATES=[0.8,1,1.2,1.4,1.6];
+var LANG={ro:"ro-RO",en:"en-GB"};
+var store={pos:{},rate:1,voices:{ro:"",en:""},last:"",size:19,filter:""};
+try{var raw=localStorage.getItem(KEY); if(raw){var o=JSON.parse(raw); for(var k in o) store[k]=o[k];}}catch(e){}
+if(!store.voices) store.voices={ro:"",en:""};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
+
+var books=(window.BOOKS||[]).slice();
+try{JSON.parse(localStorage.getItem(KEY+":mine")||"[]").forEach(function(b){
+  if(!b.data){ b.data=b.chapters.map(function(c){return c.p||[]}); b.chapters=b.chapters.map(function(c,i){return {t:c.t,n:b.data[i].length,c:b.data[i].join("").length}}); }
+  books.push(b);
+});}catch(e){}
+
+var cur={book:null,ci:0,pi:0,si:0};
+var sents=[];
+var playing=false, token=0, watchdog=0;
+
+/* ---------- text helpers ---------- */
+function plain(s){ s=String(s||"").toLowerCase(); try{s=s.normalize("NFD").replace(/[̀-ͯ]/g,"")}catch(e){} return s.replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim(); }
+function isSep(p){return /^[\s*·.\-–—]+$/.test(p)||/^[IVXL]+\.?$/.test(p)}
+var ABBR=/(?:^|[\s"“‘(])(?:Mr|Mrs|Ms|Dr|St|Messrs|Col|Capt|Rev|Hon|Prof|No|Mme|Mlle|M)\.\s*$/;
+function splitSentences(p,lang){
+  var parts=p.match(/[^.!?…]+(?:[.!?…]+["»”’')]*|$)\s*/g)||[p], out=[], buf="";
+  parts.forEach(function(s){
+    buf+=s;
+    if(buf.trim().length>=40&&!(lang==="en"&&ABBR.test(buf))){out.push(buf.trim());buf=""}
+  });
+  if(buf.trim()){ if(out.length&&buf.trim().length<25) out[out.length-1]+=" "+buf.trim(); else out.push(buf.trim()); }
+  var fin=[];
+  out.forEach(function(s){
+    while(s.length>600){
+      var cut=s.lastIndexOf(", ",560); if(cut<80) cut=s.lastIndexOf(" ",560); if(cut<1) break;
+      fin.push(s.slice(0,cut+1).trim()); s=s.slice(cut+1).trim();
+    }
+    fin.push(s);
+  });
+  return fin;
+}
+function minutes(chars){var m=Math.round(chars/850);return m<1?"1 min":(m<60?m+" min":Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":""))}
+function bookProgress(b){
+  var pos=store.pos[b.id]; if(!pos) return 0;
+  var total=0,done=0;
+  b.chapters.forEach(function(c,i){total+=c.n; if(i<pos.ci) done+=c.n; else if(i===pos.ci) done+=Math.min(pos.pi,c.n);});
+  return total?done/total:0;
+}
+function el(tag,cls,txt){var e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e}
+function spine(b){return b.short||b.author.split(" ").slice(-1)[0]}
+function ensureData(b,cb){
+  if(b.data) return cb(true);
+  var s=document.createElement("script"); s.src="book-"+b.id+".js";
+  s.onload=function(){ b.data=(window.BOOKDATA||{})[b.id]; cb(!!b.data); };
+  s.onerror=function(){ cb(false); };
+  document.head.appendChild(s);
+}
+
+/* ---------- views ---------- */
+var view="library";
+function show(v){
+  view=v;
+  $("library").hidden=v!=="library"; $("bookView").hidden=v!=="book"; $("reader").hidden=v!=="reader";
+  $("player").hidden=v!=="reader"; $("sizeCtl").hidden=v!=="reader";
+  $("back").hidden=v==="library";
+  $("backLabel").textContent=v==="reader"?"Cuprins":"Bibliotecă";
+  $("topTitle").textContent=v==="library"?"Cartea cu glas":(v==="reader"?"":cur.book.title);
+  window.scrollTo(0,0);
+}
+function matches(b,q){
+  if(store.filter&&(b.lang||"ro")!==store.filter) return false;
+  if(!q) return true;
+  var hay=plain(b.title+" "+b.author+" "+b.chapters.map(function(c){return c.t}).join(" "));
+  return q.split(" ").every(function(w){return hay.indexOf(w)>=0});
+}
+function renderLibrary(){
+  var shelf=$("shelf"); shelf.textContent="";
+  var q=plain($("q").value), n=0;
+  Array.prototype.forEach.call($("chips").children,function(c){c.setAttribute("aria-pressed",String(c.dataset.l===store.filter))});
+  books.forEach(function(b){
+    if(!matches(b,q)) return; n++;
+    var li=el("li"), btn=el("button","book");
+    var cov=el("div","cover "+(b.hue||"slate")); cov.appendChild(el("i",null,b.title)); cov.appendChild(el("u",null,spine(b)));
+    var meta=el("div","meta"); var tt=el("b",null,b.title); if(b.lang==="en") tt.appendChild(el("span","tag","EN")); meta.appendChild(tt);
+    meta.appendChild(el("span",null,b.author+(b.life?" ("+b.life+")":"")));
+    var chars=0; b.chapters.forEach(function(c){chars+=c.c});
+    meta.appendChild(el("span",null,b.chapters.length+(b.chapters.length===1?" capitol":" capitole")+" · cam "+minutes(chars)));
+    var pr=bookProgress(b);
+    if(pr>0){var bar=el("div","bar"),em=el("em"); em.style.width=Math.max(3,Math.round(pr*100))+"%"; bar.appendChild(em); meta.appendChild(bar);}
+    btn.appendChild(cov); btn.appendChild(meta);
+    btn.addEventListener("click",function(){openBook(b)});
+    li.appendChild(btn); shelf.appendChild(li);
+  });
+  if(!n) shelf.appendChild(el("li","empty","Nicio carte nu se potrivește. Încearcă alt titlu sau alt autor."));
+  var last=books.filter(function(b){return b.id===store.last&&store.pos[b.id]})[0];
+  $("resume").hidden=!last;
+  if(last){var p=store.pos[last.id]; $("resumeTitle").textContent=last.title+" · "+last.chapters[Math.min(p.ci,last.chapters.length-1)].t;
+    $("resume").onclick=function(){openAndPlay(last)};}
+}
+function openBook(b){
+  stop(); cur.book=b;
+  var cov=$("bvCover"); cov.className="cover "+(b.hue||"slate"); cov.children[0].textContent=b.title; cov.children[1].textContent=spine(b);
+  $("bvTitle").textContent=b.title; $("bvAuthor").textContent=b.author+(b.life?" ("+b.life+")":""); $("bvEd").textContent=b.ed||"";
+  $("bvCount").textContent="Cuprins";
+  var ol=$("chapters"); ol.textContent=""; var pos=store.pos[b.id];
+  b.chapters.forEach(function(c,i){
+    var li=el("li"), btn=el("button", pos&&pos.ci===i?"here":"");
+    btn.appendChild(el("span","n",String(i+1))); btn.appendChild(el("span","t",c.t));
+    btn.appendChild(el("span","d",pos&&pos.ci===i?"aici ai rămas":minutes(c.c)));
+    btn.addEventListener("click",function(){ if(pos&&pos.ci===i) openChapter(i,pos.pi,pos.si,false); else openChapter(i,0,0,false); });
+    li.appendChild(btn); ol.appendChild(li);
+  });
+  show("book");
+}
+function openAndPlay(b){ cur.book=b; var p=store.pos[b.id]||{ci:0,pi:0,si:0}; openChapter(p.ci,p.pi,p.si,true); }
+function openChapter(ci,pi,si,autoplay,keep){
+  var b=cur.book;
+  if(!b.data){ stop(); ensureData(b,function(ok){ if(ok) openChapter(ci,pi,si,autoplay,keep); else { openBook(b); $("bvEd").textContent="Cartea nu s-a putut încărca. Verifică internetul și încearcă din nou."; } }); return; }
+  var was=playing; stop();
+  ci=Math.max(0,Math.min(ci,b.chapters.length-1));
+  var c=b.chapters[ci], ps=b.data[ci], lang=b.lang||"ro"; cur.ci=ci;
+  $("chTitle").textContent=c.t; $("chSub").textContent=b.author+" · "+b.title+" · cam "+minutes(c.c);
+  var box=$("text"); box.textContent=""; box.lang=lang; sents=[];
+  var frag=document.createDocumentFragment();
+  ps.forEach(function(p,i){
+    var pe=el("p");
+    if(isSep(p)){pe.className="sep"; pe.textContent=p; sents.push([]);}
+    else{var ss=splitSentences(p,lang); sents.push(ss);
+      ss.forEach(function(s,j){var sp=el("span",null,s); sp.dataset.p=i; sp.dataset.s=j; pe.appendChild(sp); pe.appendChild(document.createTextNode(" "));});}
+    frag.appendChild(pe);
+  });
+  box.appendChild(frag);
+  $("nextCh").hidden=ci>=b.chapters.length-1;
+  show("reader");
+  cur.pi=Math.min(pi||0,Math.max(0,ps.length-1)); cur.si=si||0; fixPos(1);
+  mark(true); remember();
+  if(keep) setPlaying(was);
+  if(autoplay) play();
+}
+function fixPos(dir){
+  var n=sents.length;
+  while(cur.pi>=0&&cur.pi<n){
+    var ss=sents[cur.pi];
+    if(ss.length){ if(cur.si<0)cur.si=ss.length-1; if(cur.si<ss.length) return true; }
+    cur.pi+=dir; cur.si=dir>0?0:-1;
+  }
+  return false;
+}
+function mark(jump){
+  var old=document.querySelector("#text span.on"); if(old) old.classList.remove("on");
+  var sp=document.querySelector('#text span[data-p="'+cur.pi+'"][data-s="'+cur.si+'"]');
+  if(sp){sp.classList.add("on");
+    var r=sp.getBoundingClientRect(), h=window.innerHeight;
+    if(jump||r.top<90||r.bottom>h-190){
+      var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({top:window.scrollY+r.top-h*0.3,behavior:(jump||reduce)?"auto":"smooth"});
+    }
+  }
+  $("prog").style.width=(sents.length?Math.round(cur.pi/sents.length*100):0)+"%";
+}
+function remember(){ if(!cur.book) return; store.pos[cur.book.id]={ci:cur.ci,pi:cur.pi,si:cur.si}; store.last=cur.book.id; save(); }
+
+/* ---------- voice out ---------- */
+var allVoices=[];
+function voicesFor(l){ return allVoices.filter(function(v){return v.lang.toLowerCase().replace("_","-").indexOf(l)===0}); }
+function fillSel(sel,l,label){
+  sel.textContent=""; var o=el("option",null,label); o.value=""; sel.appendChild(o);
+  voicesFor(l).forEach(function(v){var op=el("option",null,v.name.replace(/\s*\(.*$/,"")+" · "+v.lang+(v.localService?"":" (online)")); op.value=v.voiceURI; sel.appendChild(op);});
+  sel.value=voicesFor(l).some(function(v){return v.voiceURI===store.voices[l]})?store.voices[l]:"";
+}
+function loadVoices(){
+  if(!synth) return;
+  allVoices=synth.getVoices()||[];
+  var a=$("voiceAlert");
+  if(allVoices.length&&!voicesFor("ro").length){
+    a.hidden=false; a.textContent="";
+    a.appendChild(el("b",null,"Telefonul nu are încă o voce în limba română."));
+    a.appendChild(document.createTextNode("Pe Android: Setări → Sistem → Limbă → Redarea vocală a textului → instalează limba română. Pe iPhone: Setări → Accesibilitate → Conținut rostit → Voci → Română."));
+  } else a.hidden=true;
+  fillSel($("voiceRo"),"ro","Vocea în română a telefonului");
+  fillSel($("voiceEn"),"en","Vocea în engleză a telefonului");
+}
+if(synth){ loadVoices(); try{synth.addEventListener("voiceschanged",loadVoices)}catch(e){synth.onvoiceschanged=loadVoices} }
+function setStatus(msg,bad){var s=$("status"); s.textContent=msg||""; s.className="status"+(bad?" bad":"");}
+function utter(text,onend,lang){
+  lang=lang||"ro";
+  var u=new SpeechSynthesisUtterance(text);
+  u.lang=LANG[lang]||lang; u.rate=store.rate;
+  var vs=voicesFor(lang), v=vs.filter(function(x){return x.voiceURI===store.voices[lang]})[0];
+  if(v){ u.voice=v; u.lang=v.lang; }
+  var my=++token, started=false;
+  u.onstart=function(){started=true; clearTimeout(watchdog); if(my===token) setStatus("")};
+  u.onend=function(){clearTimeout(watchdog); if(my===token&&onend) onend()};
+  u.onerror=function(e){
+    clearTimeout(watchdog);
+    if(my!==token||e.error==="interrupted"||e.error==="canceled") return;
+    setPlaying(false);
+    setStatus(e.error==="not-allowed"?"Apasă din nou pe redare ca să pornească vocea.":"Vocea nu a putut porni ("+(e.error||"eroare")+"). Verifică vocile instalate pe telefon.",true);
+  };
+  window.__u=u;
+  clearTimeout(watchdog);
+  watchdog=setTimeout(function(){
+    if(my===token&&!started){ setPlaying(false); try{synth.cancel()}catch(e){}
+      setStatus("Vocea nu a pornit. Deschide pagina în Chrome sau Safari și verifică volumul.",true); }
+  },6000);
+  synth.speak(u);
+}
+function setPlaying(p){
+  playing=p; $("icoPlay").hidden=p; $("icoPause").hidden=!p; $("play").setAttribute("aria-label",p?"Pauză":"Redă");
+}
+function bl(){return (cur.book&&cur.book.lang)||"ro"}
+var live=[];
+function nextPos(p){
+  var pi=p.pi, si=p.si+1;
+  while(pi<sents.length){ if(si<sents[pi].length) return {pi:pi,si:si}; pi++; si=0; }
+  return null;
+}
+/* Queue a few sentences ahead so the phone's voice flows from one to the next without a gap. */
+function speakCurrent(){
+  if(!fixPos(1)){ chapterDone(); return; }
+  mark(false); remember();
+  var my=++token, lang=bl(), q={pi:cur.pi,si:cur.si-1}, pending=0, atEnd=false, first=true;
+  var vs=voicesFor(lang), v=vs.filter(function(x){return x.voiceURI===store.voices[lang]})[0];
+  live=[]; clearTimeout(watchdog);
+  function feed(){
+    if(atEnd) return;
+    var p=nextPos(q); if(!p){ atEnd=true; return; }
+    q=p;
+    var u=new SpeechSynthesisUtterance(sents[p.pi][p.si]);
+    u.lang=v?v.lang:(LANG[lang]||lang); if(v) u.voice=v; u.rate=store.rate;
+    u.onstart=function(){
+      if(my!==token) return;
+      clearTimeout(watchdog); setStatus("");
+      cur.pi=p.pi; cur.si=p.si; mark(false); remember();
+    };
+    u.onend=function(){
+      if(my!==token) return;
+      clearTimeout(watchdog);
+      var i=live.indexOf(u); if(i>=0) live.splice(i,1);
+      pending--;
+      if(!playing) return;
+      feed(); pending+=atEnd?0:1;
+      if(pending<=0&&atEnd){ cur.pi=sents.length; cur.si=0; chapterDone(); }
+    };
+    u.onerror=function(e){
+      if(my!==token||e.error==="interrupted"||e.error==="canceled") return;
+      clearTimeout(watchdog); token++; try{synth.cancel()}catch(x){}
+      setPlaying(false);
+      setStatus(e.error==="not-allowed"?"Apasă din nou pe redare ca să pornească vocea.":"Vocea nu a putut porni ("+(e.error||"eroare")+"). Verifică vocile instalate pe telefon.",true);
+    };
+    live.push(u);
+    if(first){ first=false;
+      watchdog=setTimeout(function(){ if(my===token&&pending>0&&synth&&!synth.speaking){ setPlaying(false); try{synth.cancel()}catch(e){}
+        setStatus("Vocea nu a pornit. Deschide pagina în Chrome sau Safari și verifică volumul.",true); } },6000);
+    }
+    synth.speak(u);
+  }
+  for(var k=0;k<3;k++){ var before=atEnd; feed(); if(!atEnd) pending++; else if(!before) break; }
+}
+function chapterDone(){
+  var b=cur.book;
+  if(cur.ci<b.chapters.length-1){
+    openChapter(cur.ci+1,0,0,false,true);
+    utter(b.chapters[cur.ci].t+".",function(){ if(playing) speakCurrent(); },bl());
+  } else { setPlaying(false); cur.pi=0; cur.si=0; fixPos(1); remember(); setStatus("Ai ajuns la sfârșitul cărții."); }
+}
+function play(){
+  if(!synth||typeof SpeechSynthesisUtterance==="undefined"){ setStatus("Browserul acesta nu poate citi cu voce tare. Deschide pagina în Chrome sau Safari.",true); return; }
+  try{synth.cancel()}catch(e){}
+  setPlaying(true); setStatus("");
+  setTimeout(function(){ if(playing) speakCurrent(); },80);
+}
+function stop(){ token++; clearTimeout(watchdog); if(synth){try{synth.cancel()}catch(e){}} setPlaying(false); }
+function restart(){ if(playing){ token++; try{synth.cancel()}catch(e){} setTimeout(function(){ if(playing) speakCurrent(); },80); } }
+function jump(dir){
+  var was=playing; token++; if(synth){try{synth.cancel()}catch(e){}}
+  cur.si+=dir; if(cur.si<0){cur.pi--; cur.si=-1;}
+  if(!fixPos(dir)){ if(dir<0){cur.pi=0;cur.si=0;fixPos(1);} else {cur.pi=sents.length-1;cur.si=-1;fixPos(-1);} }
+  mark(false); remember();
+  if(was) setTimeout(function(){ if(playing) speakCurrent(); },80);
+}
+function rateLabel(){ $("rate").textContent=String(store.rate).replace(".",",")+"×"; }
+function setRate(r){ store.rate=r; save(); rateLabel(); restart(); }
+function goLibrary(){ stop(); renderLibrary(); show("library"); }
+
+/* ---------- voice commands ---------- */
+var SKIP={cartea:1,carte:1,book:1,the:1,de:1,lui:1,by:1,pe:1,la:1,vreau:1,sa:1,ascult:1,te:1,rog:1,si:1,o:1,un:1,a:1,of:1,"and":1,please:1,"in":1,biblioteca:1,din:1,scrisa:1};
+function words(s){ return plain(s).split(" ").filter(function(w){return w&&!SKIP[w]}); }
+function findBook(q){
+  var ws=words(q); if(!ws.length) return null;
+  var best=null,score=0;
+  books.forEach(function(b){
+    var hay=plain(b.title+" "+b.author).split(" "), s=0;
+    ws.forEach(function(w){
+      if(hay.indexOf(w)>=0) s+=2;
+      else if(w.length>=4&&hay.some(function(h){return h.length>=4&&(h.indexOf(w.slice(0,4))===0||w.indexOf(h.slice(0,4))===0)})) s+=1;
+    });
+    if(s>score){score=s;best=b;}
+  });
+  return best;
+}
+function doSearch(q){ stop(); store.filter=""; $("q").value=words(q).join(" "); renderLibrary(); show("library"); }
+function command(text){
+  var t=" "+plain(text)+" ", m;
+  if(!t.trim()) return "N-am auzit nimic. Apasă din nou pe microfon.";
+  if(/ (stop|opreste|oprestete|pauza|pause|taci|gata|destul) /.test(t)){ stop(); return "Oprit."; }
+  if((m=t.match(/ (cauta|search|gaseste|find|cautare) (.+)/))){ doSearch(m[2]); return "Am căutat „"+words(m[2]).join(" ")+"”."; }
+  if((m=t.match(/ (deschide|open|asculta|citeste|read|pune|vreau|listen to) (.+)/))&&words(m[2]).length){
+    var b=findBook(m[2]); if(b){ openAndPlay(b); return "Deschid „"+b.title+"”."; }
+    doSearch(m[2]); return "N-am găsit cartea. Am căutat „"+words(m[2]).join(" ")+"”.";
+  }
+  if(/ capitolul (urmator|viitor) | next chapter /.test(t)&&view==="reader"){ if(cur.ci<cur.book.chapters.length-1){ openChapter(cur.ci+1,0,0,true); return "Capitolul următor."; } return "Acesta e ultimul capitol."; }
+  if(/ (mai repede|faster) /.test(t)){ setRate(RATES[Math.min(RATES.length-1,RATES.indexOf(store.rate)+1)]); return "Viteză "+$("rate").textContent; }
+  if(/ (mai incet|mai rar|slower) /.test(t)){ setRate(RATES[Math.max(0,RATES.indexOf(store.rate)-1)]); return "Viteză "+$("rate").textContent; }
+  if(/ (play|reda|porneste|start|continua|citeste|resume|da i drumul|asculta) /.test(t)){
+    if(view==="reader"){ play(); return "Redare."; }
+    var last=(view==="book"&&cur.book)||books.filter(function(b){return b.id===store.last})[0];
+    if(last){ openAndPlay(last); return "Continui „"+last.title+"”."; }
+    return "Spune ce carte: „deschide Povești”.";
+  }
+  if(/ (inapoi|back|biblioteca|library|acasa) /.test(t)){ goLibrary(); return "Biblioteca."; }
+  var bk=findBook(text); if(bk){ openAndPlay(bk); return "Deschid „"+bk.title+"”."; }
+  doSearch(text); return "N-am recunoscut comanda. Am căutat „"+words(text).join(" ")+"”.";
+}
+var dict=null, listening=false, heard=false, hideT=0;
+function hearShow(tip,txt,linger){
+  clearTimeout(hideT); $("hear").hidden=false; $("hearTip").textContent=tip; $("hearText").textContent=txt||"";
+  if(linger) hideT=setTimeout(function(){ $("hear").hidden=true; },3500);
+}
+function setupDictation(tries){
+  if(!(window.claude&&typeof window.claude.use==="function")){ if(tries>0) setTimeout(function(){setupDictation(tries-1)},700); return; }
+  window.claude.use("dictation").then(function(d){
+    if(!d) return; dict=d; $("mic").hidden=false; $("micHint").hidden=false;
+    d.onPartial(function(e){ if(listening) hearShow("Ascult…",e.text); });
+    d.onFinal(function(e){
+      if(!listening||heard) return; heard=true;
+      var msg; try{ msg=command(e.text); }catch(err){ msg="Comanda nu a mers."; }
+      hearShow("„"+e.text+"”",msg,true);
+      try{ d.stop(); }catch(err){}
+    });
+    d.onState(function(e){
+      listening=e.state==="listening"; $("mic").classList.toggle("live",listening);
+      if(!listening&&!heard) hearShow("N-am auzit nicio comandă.","",true);
+    });
+  }).catch(function(){});
+}
+$("mic").addEventListener("click",function(){
+  if(!dict) return;
+  if(listening){ try{dict.stop()}catch(e){} return; }
+  heard=false; stop();
+  hearShow("Ascult. Spune: „deschide…”, „caută…”, „play”, „stop”.","");
+  var p; try{ p=dict.start(); }catch(e){ p=Promise.reject(e); }
+  listening=true; $("mic").classList.add("live");
+  Promise.resolve(p).catch(function(err){
+    listening=false; $("mic").classList.remove("live"); heard=true;
+    var c=err&&err.code;
+    if(c==="not_granted"){ $("mic").hidden=true; $("micHint").hidden=true; hearShow("Microfonul nu a fost permis.","Poți folosi căutarea scrisă.",true); }
+    else hearShow("Microfonul nu a pornit.","Apasă din nou.",true);
+  });
+});
+
+/* ---------- events ---------- */
+$("play").addEventListener("click",function(){ if(playing) stop(); else play(); });
+$("prev").addEventListener("click",function(){jump(-1)});
+$("next").addEventListener("click",function(){jump(1)});
+$("text").addEventListener("click",function(e){
+  var sp=e.target.closest?e.target.closest("span[data-p]"):null; if(!sp) return;
+  token++; cur.pi=+sp.dataset.p; cur.si=+sp.dataset.s; mark(false); remember(); play();
+});
+$("rate").addEventListener("click",function(){ setRate(RATES[(RATES.indexOf(store.rate)+1)%RATES.length]); });
+$("back").addEventListener("click",function(){ if(view==="reader") openBook(cur.book); else goLibrary(); });
+$("nextCh").addEventListener("click",function(){ openChapter(cur.ci+1,0,0,false); });
+function applySize(){ document.documentElement.style.setProperty("--read-size",store.size+"px"); }
+$("smaller").addEventListener("click",function(){ store.size=Math.max(15,store.size-2); applySize(); save(); });
+$("bigger").addEventListener("click",function(){ store.size=Math.min(31,store.size+2); applySize(); save(); });
+$("q").addEventListener("input",renderLibrary);
+$("chips").addEventListener("click",function(e){ var b=e.target.closest?e.target.closest("button"):null; if(!b) return; store.filter=b.dataset.l; save(); renderLibrary(); });
+$("voiceBtn").addEventListener("click",function(){ loadVoices(); $("scrim").hidden=false; $(bl()==="en"?"voiceEn":"voiceRo").focus(); });
+$("sheetClose").addEventListener("click",function(){ $("scrim").hidden=true; });
+$("scrim").addEventListener("click",function(e){ if(e.target===this) this.hidden=true; });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") $("scrim").hidden=true; });
+$("voiceRo").addEventListener("change",function(){ store.voices.ro=this.value; save(); });
+$("voiceEn").addEventListener("change",function(){ store.voices.en=this.value; save(); });
+$("voiceTest").addEventListener("click",function(){
+  if(!synth) return; stop();
+  if(bl()==="en") utter("Once upon a time there was a great and mighty king.",null,"en");
+  else utter("A fost odată ca niciodată un împărat mare și puternic.",null,"ro");
+});
+$("file").addEventListener("change",function(){
+  var f=this.files&&this.files[0]; if(!f) return; var input=this;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var txt=String(rd.result||"").replace(/\r\n?/g,"\n");
+    var ps=txt.split(/\n\s*\n/).map(function(p){return p.replace(/\s*\n\s*/g," ").trim()}).filter(Boolean);
+    if(ps.length<3) ps=txt.split(/\n/).map(function(p){return p.trim()}).filter(Boolean);
+    if(!ps.length){ input.value=""; return; }
+    var name=f.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").trim()||"Cartea mea";
+    var chapters=[], data=[], per=120;
+    for(var i=0;i<ps.length;i+=per){ var sl=ps.slice(i,i+per); data.push(sl); chapters.push({t:ps.length>per?"Partea "+(chapters.length+1):name,n:sl.length,c:sl.join("").length}); }
+    var sample=" "+plain(ps.slice(0,40).join(" "))+" ";
+    var en=(sample.match(/ (the|and|of|was|that|with) /g)||[]).length, ro=(sample.match(/ (si|de|la|cu|care|era|un|nu) /g)||[]).length;
+    var b={id:"mine-"+Date.now(),title:name,author:"Adăugată de tine",hue:"slate",lang:en>ro?"en":"ro",chapters:chapters,data:data};
+    books.push(b);
+    try{ localStorage.setItem(KEY+":mine",JSON.stringify(books.filter(function(x){return /^mine-/.test(x.id)}))); }catch(e){}
+    input.value=""; renderLibrary(); openBook(b);
+  };
+  rd.readAsText(f);
+});
+window.addEventListener("pagehide",function(){ if(synth){try{synth.cancel()}catch(e){}} });
+
+applySize(); rateLabel(); renderLibrary(); setupDictation(8);
+if(!synth){ var a=$("voiceAlert"); a.hidden=false; a.textContent="Browserul acesta nu poate citi cu voce tare. Deschide pagina în Chrome sau Safari."; }
+})();
+</script>
+</body>
+</html>
