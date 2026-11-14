@@ -143,6 +143,12 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
 .off{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin:14px 0 0;padding:8px 14px;border:1px solid var(--line);background:var(--surface);border-radius:12px;font-weight:600;color:var(--accent);text-align:center}
 .off[disabled]{color:var(--muted);cursor:default}
 .tag.ok{color:var(--accent);border-color:var(--accent)}
+.text p{white-space:pre-line}
+.wsnote{color:var(--muted);font-size:13.5px;margin:12px 0 0}
+.wsstat{min-height:1.5em;margin:14px 0 4px;font-size:14.5px;color:var(--muted)}
+.wsstat.bad{color:var(--warn)}
+.find button{flex:none;min-height:48px;padding:0 16px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600}
+.off.danger{color:var(--warn)}
 .empty{color:var(--muted);padding:18px 4px}
 .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:6px;color:var(--muted);vertical-align:2px}
 .hint{color:var(--muted);font-size:13.5px;margin:10px 0 0}
@@ -177,11 +183,21 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
     <p class="hint" id="micHint" hidden>Apasă pe microfon și spune: „deschide Povești”, „caută Caragiale”, „play”, „stop”.</p>
     <h2>Bibliotecă</h2>
     <ul class="shelf" id="shelf"></ul>
+    <button class="off" id="wsOpen">Caută mai multe cărți în română, pe Wikisource</button>
     <label class="add"><input type="file" id="file" accept=".txt,text/plain">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       Adaugă o carte din telefon (.txt)</label>
     <button class="off" id="saveAll" hidden>Salvează toată biblioteca pe telefon (circa 11 MB)</button>
     <p class="note">Cărțile din bibliotecă sunt în domeniul public: autorii și traducătorul au murit de peste 70 de ani. Textele vin din edițiile digitizate de Project Gutenberg. La cărțile în română, ortografia de epocă a fost adusă ușor la zi ca vocea să le pronunțe corect.</p>
+  </section>
+
+  <section id="wiki" class="wrap" hidden>
+    <p class="lead">Wikisource este biblioteca liberă a Wikipediei. Caută un titlu sau alege un autor, apoi apasă pe o lucrare ca s-o adaugi în biblioteca ta.</p>
+    <form class="find" id="wsForm"><input type="search" id="wq" placeholder="Titlu, de exemplu Amintiri din copilărie" aria-label="Caută pe Wikisource" autocomplete="off"><button type="submit">Caută</button></form>
+    <div class="chips" id="wsAuthors"></div>
+    <p class="wsstat" id="wsStat" role="status" aria-live="polite"></p>
+    <ol class="chapters" id="wsList" hidden></ol>
+    <p class="wsnote">Autorii din listă au murit până în 1955, deci operele lor sunt în domeniul public. La ce găsești prin căutare, verifică autorul și, la traduceri, traducătorul.</p>
   </section>
 
   <section id="bookView" class="wrap" hidden>
@@ -190,6 +206,7 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
       <div><h3 id="bvTitle"></h3><p id="bvAuthor"></p><p id="bvEd"></p></div>
     </div>
     <button class="off" id="offBtn" hidden></button>
+    <button class="off danger" id="delBtn" hidden>Șterge din bibliotecă</button>
     <h2 id="bvCount"></h2>
     <ol class="chapters" id="chapters"></ol>
   </section>
@@ -243,7 +260,15 @@ if(!store.voices) store.voices={ro:"",en:""};
 function save(){try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}}
 
 var books=(window.BOOKS||[]).slice();
+function isOwn(b){ return /^(mine|ws)-/.test(b.id); }
+function saveMine(){
+  try{ localStorage.setItem(KEY+":mine",JSON.stringify(books.filter(isOwn).map(function(b){
+    if(b.src!=="ws") return b;
+    var c={}; for(var k in b) if(k!=="data") c[k]=b[k]; return c;
+  }))); }catch(e){}
+}
 try{JSON.parse(localStorage.getItem(KEY+":mine")||"[]").forEach(function(b){
+  if(b.src==="ws"){ b.data=[]; books.push(b); return; }
   if(!b.data){ b.data=b.chapters.map(function(c){return c.p||[]}); b.chapters=b.chapters.map(function(c,i){return {t:c.t,n:b.data[i].length,c:b.data[i].join("").length}}); }
   books.push(b);
 });}catch(e){}
@@ -286,6 +311,7 @@ var SAY_EN=[[/\bMr\./g,"Mister"],[/\bMrs\./g,"Missus"],[/\bMs\./g,"Miz"],[/\bDr\
 var SAY_RO=[[/\b[Dd]-lui\b/g,"domnului"],[/\b[Dd]-l\b/g,"domnul"],[/\b[Dd]-na\b/g,"doamna"],[/\b[Dd]-ra\b/g,"domnișoara"],[/\b[Dd]l\./g,"domnul"],[/\b[Dd]na\./g,"doamna"],
   [/\b[Dd]r\./g,"doctor"],[/\b[Nn]r\.(?=\s*\d)/g,"numărul"],[/\b[Ss]f\.(?=\s+[A-ZĂÂÎȘȚ])/g,"sfântul"],[/\betc\.(?=\s+[a-zăâîșț,;)])/g,"etcetera"],[/\bș\.\s?a\.\s?m\.\s?d\./g,"și așa mai departe"]];
 function say(t,lang){
+  t=t.replace(/([^\s.,;:!?…—–-])\n/g,"$1,\n");
   (lang==="en"?SAY_EN:SAY_RO).forEach(function(r){ t=t.replace(r[0],r[1]); });
   return t;
 }
@@ -293,7 +319,7 @@ function minutes(chars){var m=Math.round(chars/850);return m<1?"1 min":(m<60?m+"
 function bookProgress(b){
   var pos=store.pos[b.id]; if(!pos) return 0;
   var total=0,done=0;
-  b.chapters.forEach(function(c,i){total+=c.n; if(i<pos.ci) done+=c.n; else if(i===pos.ci) done+=Math.min(pos.pi,c.n);});
+  b.chapters.forEach(function(c,i){var n=c.n||1; total+=n; if(i<pos.ci) done+=n; else if(i===pos.ci) done+=Math.min(pos.pi,n);});
   return total?done/total:0;
 }
 function el(tag,cls,txt){var e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e}
@@ -308,10 +334,22 @@ function ensureData(b,cb){
 
 /* ---------- offline ---------- */
 var swReady=false;
-function bookUrl(b){ return "book-"+b.id+".js"; }
-function isSaved(b){ if(!swReady||b.data&&/^mine-/.test(b.id)) return Promise.resolve(/^mine-/.test(b.id)); return caches.match(bookUrl(b)).then(function(r){return !!r}).catch(function(){return false}); }
-function saveBook(b){ return caches.open("ccg-books").then(function(c){ return c.match(bookUrl(b)).then(function(hit){ return hit||c.add(bookUrl(b)); }); }); }
+function bookUrls(b){
+  if(b.src==="ws"){ var u=[]; b.chapters.forEach(function(c){ var x=wsPageUrl(c.page); if(u.indexOf(x)<0) u.push(x); }); return u; }
+  return /^mine-/.test(b.id)?[]:["book-"+b.id+".js"];
+}
+function isSaved(b){
+  var u=bookUrls(b); if(!u.length) return Promise.resolve(true);
+  if(!swReady) return Promise.resolve(false);
+  return Promise.all(u.map(function(x){ return caches.match(x).then(function(r){return !!r}); })).then(function(r){ return r.every(Boolean); }).catch(function(){return false});
+}
+function saveBook(b){
+  return caches.open(b.src==="ws"?"ccg-wiki":"ccg-books").then(function(c){
+    return bookUrls(b).reduce(function(p,x){ return p.then(function(){ return caches.match(x).then(function(hit){ return hit||c.add(x); }); }); },Promise.resolve());
+  });
+}
 function offState(b){
+  $("delBtn").hidden=!isOwn(b); $("delBtn").textContent="Șterge din bibliotecă"; $("delBtn").__arm=false;
   var btn=$("offBtn"); if(!swReady||/^mine-/.test(b.id)){ btn.hidden=true; return; }
   btn.hidden=false; btn.disabled=true; btn.textContent="…";
   isSaved(b).then(function(ok){
@@ -325,7 +363,7 @@ function tagSaved(){
     var b=btn.__book; if(!b||/^mine-/.test(b.id)) return;
     isSaved(b).then(function(ok){ if(ok&&!btn.querySelector(".tag.ok")) btn.querySelector(".meta b").appendChild(el("span","tag ok","PE TELEFON")); });
   });
-  var rest=books.filter(function(b){return !/^mine-/.test(b.id)});
+  var rest=books.filter(function(b){return !isOwn(b)});
   Promise.all(rest.map(isSaved)).then(function(r){
     var n=r.filter(Boolean).length, sa=$("saveAll"); sa.hidden=false;
     if(n===rest.length){ sa.disabled=true; sa.textContent="Toată biblioteca e salvată pe telefon."; }
@@ -339,11 +377,11 @@ if("serviceWorker" in navigator){
 var view="library";
 function show(v){
   view=v;
-  $("library").hidden=v!=="library"; $("bookView").hidden=v!=="book"; $("reader").hidden=v!=="reader";
+  $("library").hidden=v!=="library"; $("bookView").hidden=v!=="book"; $("reader").hidden=v!=="reader"; $("wiki").hidden=v!=="wiki";
   $("player").hidden=v!=="reader"; $("sizeCtl").hidden=v!=="reader";
   $("back").hidden=v==="library";
   $("backLabel").textContent=v==="reader"?"Cuprins":"Bibliotecă";
-  $("topTitle").textContent=v==="library"?"Cartea cu glas":(v==="reader"?"":cur.book.title);
+  $("topTitle").textContent=v==="library"?"Cartea cu glas":(v==="wiki"?"Wikisource":(v==="reader"?"":cur.book.title));
   window.scrollTo(0,0);
 }
 function matches(b,q){
@@ -362,8 +400,8 @@ function renderLibrary(){
     var cov=el("div","cover "+(b.hue||"slate")); cov.appendChild(el("i",null,b.title)); cov.appendChild(el("u",null,spine(b)));
     var meta=el("div","meta"); var tt=el("b",null,b.title); if(b.lang==="en") tt.appendChild(el("span","tag","EN")); meta.appendChild(tt);
     meta.appendChild(el("span",null,b.author+(b.life?" ("+b.life+")":"")));
-    var chars=0; b.chapters.forEach(function(c){chars+=c.c});
-    meta.appendChild(el("span",null,b.chapters.length+(b.chapters.length===1?" capitol":" capitole")+" · cam "+minutes(chars)));
+    var chars=0, known=true; b.chapters.forEach(function(c){ if(c.c) chars+=c.c; else known=false; });
+    meta.appendChild(el("span",null,b.chapters.length+(b.chapters.length===1?" capitol":" capitole")+(known?" · cam "+minutes(chars):"")));
     var pr=bookProgress(b);
     if(pr>0){var bar=el("div","bar"),em=el("em"); em.style.width=Math.max(3,Math.round(pr*100))+"%"; bar.appendChild(em); meta.appendChild(bar);}
     btn.appendChild(cov); btn.appendChild(meta);
@@ -387,7 +425,7 @@ function openBook(b){
   b.chapters.forEach(function(c,i){
     var li=el("li"), btn=el("button", pos&&pos.ci===i?"here":"");
     btn.appendChild(el("span","n",String(i+1))); btn.appendChild(el("span","t",c.t));
-    btn.appendChild(el("span","d",pos&&pos.ci===i?"aici ai rămas":minutes(c.c)));
+    btn.appendChild(el("span","d",pos&&pos.ci===i?"aici ai rămas":(c.c?minutes(c.c):"")));
     btn.addEventListener("click",function(){ if(pos&&pos.ci===i) openChapter(i,pos.pi,pos.si,false); else openChapter(i,0,0,false); });
     li.appendChild(btn); ol.appendChild(li);
   });
@@ -397,11 +435,13 @@ function openBook(b){
 function openAndPlay(b){ cur.book=b; var p=store.pos[b.id]||{ci:0,pi:0,si:0}; openChapter(p.ci,p.pi,p.si,true); }
 function openChapter(ci,pi,si,autoplay,keep){
   var b=cur.book;
-  if(!b.data){ stop(); ensureData(b,function(ok){ if(ok) openChapter(ci,pi,si,autoplay,keep); else { openBook(b); $("bvEd").textContent="Cartea nu s-a putut încărca. Fără internet merg doar cărțile salvate pe telefon."; } }); return; }
-  var was=playing; stop();
   ci=Math.max(0,Math.min(ci,b.chapters.length-1));
+  var fail=function(){ openBook(b); $("bvEd").textContent="Cartea nu s-a putut încărca. Fără internet merg doar cărțile salvate pe telefon."; };
+  if(b.src==="ws"&&!b.data[ci]){ stop(); $("bvEd").textContent="Se încarcă…"; loadChapter(b,ci,function(ok){ if(cur.book!==b) return; if(ok) openChapter(ci,pi,si,autoplay,keep); else fail(); }); return; }
+  if(!b.data){ stop(); ensureData(b,function(ok){ if(ok) openChapter(ci,pi,si,autoplay,keep); else fail(); }); return; }
+  var was=playing; stop();
   var c=b.chapters[ci], ps=b.data[ci], lang=b.lang||"ro"; cur.ci=ci;
-  $("chTitle").textContent=c.t; $("chSub").textContent=b.author+" · "+b.title+" · cam "+minutes(c.c);
+  $("chTitle").textContent=c.t; $("chSub").textContent=b.author+" · "+b.title+(c.c?" · cam "+minutes(c.c):"");
   var box=$("text"); box.textContent=""; box.lang=lang; sents=[];
   var frag=document.createDocumentFragment();
   ps.forEach(function(p,i){
@@ -541,6 +581,14 @@ function speakCurrent(){
 }
 function chapterDone(){
   var b=cur.book;
+  if(b.src==="ws"&&cur.ci<b.chapters.length-1&&!b.data[cur.ci+1]){
+    setStatus("Se încarcă capitolul următor…");
+    loadChapter(b,cur.ci+1,function(ok){
+      if(cur.book!==b||!playing) return;
+      if(ok) chapterDone(); else { setPlaying(false); setStatus("Capitolul următor nu s-a putut încărca. Verifică internetul.",true); }
+    });
+    return;
+  }
   if(cur.ci<b.chapters.length-1){
     openChapter(cur.ci+1,0,0,false,true);
     utter(b.chapters[cur.ci].t+".",function(){ if(playing) speakCurrent(); },bl());
@@ -669,6 +717,124 @@ $("mic").addEventListener("click",function(){
   });
 });
 
+/* ---------- Wikisource ---------- */
+var WS="https://ro.wikisource.org/w/api.php?format=json&formatversion=2&origin=*&";
+var WS_AUTHORS=["Mihai Eminescu","Ion Creangă","Ion Luca Caragiale","Ioan Slavici","George Coșbuc","Vasile Alecsandri","Petre Ispirescu","Alexandru Macedonski","Barbu Ștefănescu Delavrancea","Alexandru Vlahuță","Costache Negruzzi","Alexandru Odobescu","Nicolae Filimon","Duiliu Zamfirescu","Ion Ghica","Grigore Alexandrescu","Dimitrie Bolintineanu","Anton Pann","Octavian Goga","Ștefan Octavian Iosif","George Topîrceanu","Liviu Rebreanu","Calistrat Hogaș","Emil Gârleanu","Mateiu Caragiale","Panait Istrati","Ion Minulescu"];
+var HUES=["wine","pine","navy","slate"];
+function wsPageUrl(title){ return WS+"action=parse&prop=text&redirects=1&disableeditsection=1&disabletoc=1&page="+encodeURIComponent(title); }
+function wsGet(url){ return fetch(url).then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }).then(function(j){
+  if(j.error){ try{ caches.open("ccg-wiki").then(function(c){ c.delete(url); }); }catch(e){} throw new Error(j.error.info||j.error.code); }
+  return j; }); }
+function linkTitle(a){
+  var t=a.getAttribute("title"); if(t) return t;
+  var h=a.getAttribute("href")||""; if(h.indexOf("/wiki/")!==0) return "";
+  try{ return decodeURIComponent(h.slice(6).split("#")[0]).replace(/_/g," "); }catch(e){ return ""; }
+}
+var BLOCK={P:1,DIV:1,DD:1,DT:1,LI:1,BLOCKQUOTE:1,H1:1,H2:1,H3:1,H4:1,H5:1,H6:1,CENTER:1,SECTION:1,UL:1,OL:1,DL:1,PRE:1,ARTICLE:1,HR:1};
+function nodeText(n){
+  var c=n.cloneNode(true);
+  Array.prototype.forEach.call(c.querySelectorAll?c.querySelectorAll("br"):[],function(br){ br.parentNode.replaceChild(document.createTextNode("\n"),br); });
+  return (c.textContent||"").replace(/ş/g,"ș").replace(/ţ/g,"ț").replace(/Ş/g,"Ș").replace(/Ţ/g,"Ț")
+    .split("\n").map(function(l){return l.replace(/\s+/g," ").trim()}).filter(Boolean).join("\n");
+}
+function collect(node,out){
+  var run=[];
+  function flush(){ if(run.length){ var w=document.createElement("span"); run.forEach(function(x){w.appendChild(x.cloneNode(true))}); var t=nodeText(w); if(t) out.push(t); run=[]; } }
+  Array.prototype.forEach.call(node.childNodes,function(ch){
+    if(ch.nodeType===1&&BLOCK[ch.tagName]){
+      flush();
+      var hasBlock=Array.prototype.some.call(ch.children,function(x){return BLOCK[x.tagName]});
+      if(hasBlock) collect(ch,out); else { var t=nodeText(ch); if(t) out.push(t); }
+    } else if(ch.nodeType===1||ch.nodeType===3) run.push(ch);
+  });
+  flush();
+}
+function wsParse(html,pageTitle){
+  var doc=new DOMParser().parseFromString(html,"text/html");
+  var root=doc.querySelector(".mw-parser-output")||doc.body;
+  var subs=[], works=[], seenS={}, seenW={}, author="";
+  Array.prototype.forEach.call(root.querySelectorAll("a[href^='/wiki/']"),function(a){
+    if(/\bnew\b/.test(a.className)) return;
+    var t=linkTitle(a), label=(a.textContent||"").replace(/\s+/g," ").trim(); if(!t||!label) return;
+    if(t.indexOf("Autor:")===0){ if(!author) author=t.slice(6).split("/")[0]; return; }
+    if(t.indexOf(pageTitle+"/")===0){ if(!seenS[t]){ seenS[t]=1; subs.push({title:t,label:label}); } return; }
+    if(t.indexOf(":")<0&&a.closest&&a.closest("li,dd,p,td")){ var r=t.split("/")[0]; if(!seenW[r]){ seenW[r]=1; works.push({title:r,label:t.indexOf("/")<0?label:r}); } }
+  });
+  Array.prototype.forEach.call(root.querySelectorAll("table,style,script,sup.reference,.reference,.references,.mw-references-wrap,.mw-editsection,.noprint,.ws-noexport,.noexport,.toc,#toc,.catlinks,.navbox,.metadata,.mw-empty-elt,.licenseContainer,.thumb,figure,.gallery,.pagenum,.ws-pagenum,.mw-cite-backlink,.sisterproject,.interProject"),function(x){ if(x.parentNode) x.parentNode.removeChild(x); });
+  var paras=[]; collect(root,paras);
+  return {paras:paras,subs:subs,works:works,author:author};
+}
+var PART=150;
+function loadChapter(b,ci,cb){
+  var c=b.chapters[ci];
+  wsGet(wsPageUrl(c.page)).then(function(j){
+    var ps=wsParse(j.parse.text,j.parse.title||c.page).paras;
+    if(c.part!=null) ps=ps.slice(c.part*PART,(c.part+1)*PART);
+    if(!ps.length) ps=["Acest capitol nu are text."];
+    b.data[ci]=ps; c.n=ps.length; c.c=ps.join("").length; saveMine(); cb(true);
+  }).catch(function(){ cb(false); });
+}
+function wsStat(msg,bad){ var e=$("wsStat"); e.textContent=msg||""; e.className="wsstat"+(bad?" bad":""); }
+function wsShowList(items,author){
+  var ol=$("wsList"); ol.textContent=""; ol.hidden=!items.length;
+  items.forEach(function(it,i){
+    var li=el("li"), btn=el("button");
+    btn.appendChild(el("span","n",String(i+1))); btn.appendChild(el("span","t",it.label));
+    btn.addEventListener("click",function(){ wsAdd(it.title,author); });
+    li.appendChild(btn); ol.appendChild(li);
+  });
+}
+function wsSearch(q){
+  q=q.trim(); if(!q) return;
+  wsStat("Caut „"+q+"”…"); wsShowList([]);
+  wsGet(WS+"action=query&list=search&srnamespace=0&srlimit=40&srsearch="+encodeURIComponent(q)).then(function(j){
+    var seen={}, items=[];
+    (j.query&&j.query.search||[]).forEach(function(r){ var t=r.title.split("/")[0]; if(!seen[t]){ seen[t]=1; items.push({title:t,label:t}); } });
+    wsShowList(items,""); wsStat(items.length?items.length+" rezultate. Apasă pe o lucrare ca s-o adaugi.":"Nimic găsit pentru „"+q+"”. Încearcă alt cuvânt din titlu.");
+  }).catch(function(e){ wsStat("Căutarea nu a mers ("+e.message+"). Verifică internetul și încearcă din nou.",true); });
+}
+function wsAuthor(name){
+  wsStat("Caut lucrările lui "+name+"…"); wsShowList([]);
+  wsGet(wsPageUrl("Autor:"+name)).then(function(j){
+    var w=wsParse(j.parse.text,j.parse.title||"").works;
+    if(!w.length) throw new Error("fără lucrări");
+    wsShowList(w,name); wsStat(name+": "+w.length+" lucrări. Apasă pe una ca s-o adaugi.");
+  }).catch(function(){ $("wq").value=name; wsSearch(name); });
+}
+function wsAdd(title,author){
+  var id="ws-"+encodeURIComponent(title).replace(/%/g,"").slice(0,70);
+  var have=books.filter(function(b){return b.id===id})[0];
+  if(have){ openBook(have); return; }
+  wsStat("Adaug „"+title+"”…");
+  wsGet(wsPageUrl(title)).then(function(j){
+    var real=j.parse.title||title, pr=wsParse(j.parse.text,real), own=pr.paras.join("").length, chapters=[], data=[];
+    if(pr.subs.length>=2&&(own<4000||pr.subs.length>=3)){
+      pr.subs.forEach(function(sb){ chapters.push({t:sb.label.length>60?sb.title.slice(real.length+1):sb.label,page:sb.title}); });
+    } else if(pr.paras.length){
+      var parts=Math.ceil(pr.paras.length/PART);
+      for(var i=0;i<parts;i++){
+        var sl=pr.paras.slice(i*PART,(i+1)*PART);
+        chapters.push({t:parts>1?"Partea "+(i+1):real,page:real,part:parts>1?i:null,n:sl.length,c:sl.join("").length}); data[i]=sl;
+      }
+    }
+    if(!chapters.length) throw new Error("pagina nu are text de citit");
+    var b={id:id,title:real.replace(/\s*\([^)]*\)\s*$/,""),author:author||pr.author||"Wikisource",short:(author||pr.author||"Wikisource").split(" ").slice(-1)[0],
+      hue:HUES[books.length%HUES.length],lang:"ro",src:"ws",ed:"Text de pe Wikisource",chapters:chapters,data:data};
+    books.push(b); saveMine(); wsStat(""); renderLibrary(); openBook(b);
+  }).catch(function(e){ wsStat("„"+title+"” nu a putut fi adăugată ("+e.message+").",true); });
+}
+(function(){
+  var box=$("wsAuthors");
+  WS_AUTHORS.forEach(function(n){ var c=el("button",null,n); c.type="button"; c.addEventListener("click",function(){ wsAuthor(n); }); box.appendChild(c); });
+})();
+$("wsOpen").addEventListener("click",function(){ stop(); show("wiki"); });
+$("wsForm").addEventListener("submit",function(e){ e.preventDefault(); wsSearch($("wq").value); });
+$("delBtn").addEventListener("click",function(){
+  var b=cur.book; if(!b||!isOwn(b)) return;
+  if(!this.__arm){ this.__arm=true; this.textContent="Apasă încă o dată ca să ștergi cartea"; return; }
+  books=books.filter(function(x){return x!==b}); delete store.pos[b.id]; if(store.last===b.id) store.last=""; save(); saveMine(); goLibrary();
+});
+
 /* ---------- events ---------- */
 $("play").addEventListener("click",function(){ if(playing) stop(); else play(); });
 $("prev").addEventListener("click",function(){jump(-1)});
@@ -690,7 +856,7 @@ $("offBtn").addEventListener("click",function(){
 });
 $("saveAll").addEventListener("click",function(){
   var sa=this; if(sa.disabled) return;
-  var rest=books.filter(function(b){return !/^mine-/.test(b.id)}), i=0, failed=0;
+  var rest=books.filter(function(b){return !isOwn(b)}), i=0, failed=0;
   sa.disabled=true; sa.__busy=true;
   (function next(){
     if(i>=rest.length){ sa.__busy=false; if(failed){ sa.disabled=false; sa.textContent=failed+" cărți nu s-au putut salva. Apasă din nou."; } tagSaved(); return; }
@@ -726,7 +892,7 @@ $("file").addEventListener("change",function(){
     var en=(sample.match(/ (the|and|of|was|that|with) /g)||[]).length, ro=(sample.match(/ (si|de|la|cu|care|era|un|nu) /g)||[]).length;
     var b={id:"mine-"+Date.now(),title:name,author:"Adăugată de tine",hue:"slate",lang:en>ro?"en":"ro",chapters:chapters,data:data};
     books.push(b);
-    try{ localStorage.setItem(KEY+":mine",JSON.stringify(books.filter(function(x){return /^mine-/.test(x.id)}))); }catch(e){}
+    saveMine();
     input.value=""; renderLibrary(); openBook(b);
   };
   rd.readAsText(f);

@@ -1,5 +1,5 @@
 /* Cartea cu glas: keeps the app and saved books available without internet. */
-var SHELL = "ccg-shell-v1", BOOKS = "ccg-books", FONTS = "ccg-fonts";
+var SHELL = "ccg-shell-v2", BOOKS = "ccg-books", FONTS = "ccg-fonts";
 var CORE = ["./", "index.html", "books.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function (e) {
@@ -36,6 +36,8 @@ self.addEventListener("fetch", function (e) {
   if (url.origin === self.location.origin) {
     if (/\/book-[\w-]+\.js$/.test(url.pathname)) e.respondWith(cacheFirst(req, BOOKS));
     else e.respondWith(networkFirst(req));
+  } else if (url.hostname === "ro.wikisource.org" && /[?&]action=parse(&|$)/.test(url.search)) {
+    e.respondWith(cacheFirst(req, "ccg-wiki"));
   } else if (/fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
     e.respondWith(cacheFirst(req, FONTS));
   }
