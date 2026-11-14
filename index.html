@@ -140,6 +140,9 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
 .chips button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:20px;background:var(--surface);font-weight:600;font-size:14.5px}
 .chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.off{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin:14px 0 0;padding:8px 14px;border:1px solid var(--line);background:var(--surface);border-radius:12px;font-weight:600;color:var(--accent);text-align:center}
+.off[disabled]{color:var(--muted);cursor:default}
+.tag.ok{color:var(--accent);border-color:var(--accent)}
 .empty{color:var(--muted);padding:18px 4px}
 .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:6px;color:var(--muted);vertical-align:2px}
 .hint{color:var(--muted);font-size:13.5px;margin:10px 0 0}
@@ -177,6 +180,7 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
     <label class="add"><input type="file" id="file" accept=".txt,text/plain">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       Adaugă o carte din telefon (.txt)</label>
+    <button class="off" id="saveAll" hidden>Salvează toată biblioteca pe telefon (circa 11 MB)</button>
     <p class="note">Cărțile din bibliotecă sunt în domeniul public: autorii și traducătorul au murit de peste 70 de ani. Textele vin din edițiile digitizate de Project Gutenberg. La cărțile în română, ortografia de epocă a fost adusă ușor la zi ca vocea să le pronunțe corect.</p>
   </section>
 
@@ -185,6 +189,7 @@ h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute
       <div class="cover" id="bvCover"><i></i><u></u></div>
       <div><h3 id="bvTitle"></h3><p id="bvAuthor"></p><p id="bvEd"></p></div>
     </div>
+    <button class="off" id="offBtn" hidden></button>
     <h2 id="bvCount"></h2>
     <ol class="chapters" id="chapters"></ol>
   </section>
@@ -301,6 +306,35 @@ function ensureData(b,cb){
   document.head.appendChild(s);
 }
 
+/* ---------- offline ---------- */
+var swReady=false;
+function bookUrl(b){ return "book-"+b.id+".js"; }
+function isSaved(b){ if(!swReady||b.data&&/^mine-/.test(b.id)) return Promise.resolve(/^mine-/.test(b.id)); return caches.match(bookUrl(b)).then(function(r){return !!r}).catch(function(){return false}); }
+function saveBook(b){ return caches.open("ccg-books").then(function(c){ return c.match(bookUrl(b)).then(function(hit){ return hit||c.add(bookUrl(b)); }); }); }
+function offState(b){
+  var btn=$("offBtn"); if(!swReady||/^mine-/.test(b.id)){ btn.hidden=true; return; }
+  btn.hidden=false; btn.disabled=true; btn.textContent="…";
+  isSaved(b).then(function(ok){
+    if(cur.book!==b) return;
+    btn.disabled=ok; btn.textContent=ok?"Salvată pe telefon. Merge și fără internet.":"Salvează pe telefon, pentru ascultat fără internet";
+  });
+}
+function tagSaved(){
+  if(!swReady) return;
+  Array.prototype.forEach.call(document.querySelectorAll("#shelf .book"),function(btn){
+    var b=btn.__book; if(!b||/^mine-/.test(b.id)) return;
+    isSaved(b).then(function(ok){ if(ok&&!btn.querySelector(".tag.ok")) btn.querySelector(".meta b").appendChild(el("span","tag ok","PE TELEFON")); });
+  });
+  var rest=books.filter(function(b){return !/^mine-/.test(b.id)});
+  Promise.all(rest.map(isSaved)).then(function(r){
+    var n=r.filter(Boolean).length, sa=$("saveAll"); sa.hidden=false;
+    if(n===rest.length){ sa.disabled=true; sa.textContent="Toată biblioteca e salvată pe telefon."; }
+    else if(!sa.__busy){ sa.disabled=false; sa.textContent="Salvează toată biblioteca pe telefon (circa 11 MB)"; }
+  });
+}
+if("serviceWorker" in navigator){
+  try{ navigator.serviceWorker.register("sw.js").then(function(){ swReady=("caches" in window); if(swReady){ tagSaved(); if(cur.book&&view==="book") offState(cur.book); } }).catch(function(){}); }catch(e){}
+}
 /* ---------- views ---------- */
 var view="library";
 function show(v){
@@ -333,10 +367,12 @@ function renderLibrary(){
     var pr=bookProgress(b);
     if(pr>0){var bar=el("div","bar"),em=el("em"); em.style.width=Math.max(3,Math.round(pr*100))+"%"; bar.appendChild(em); meta.appendChild(bar);}
     btn.appendChild(cov); btn.appendChild(meta);
+    btn.__book=b;
     btn.addEventListener("click",function(){openBook(b)});
     li.appendChild(btn); shelf.appendChild(li);
   });
   if(!n) shelf.appendChild(el("li","empty","Nicio carte nu se potrivește. Încearcă alt titlu sau alt autor."));
+  tagSaved();
   var last=books.filter(function(b){return b.id===store.last&&store.pos[b.id]})[0];
   $("resume").hidden=!last;
   if(last){var p=store.pos[last.id]; $("resumeTitle").textContent=last.title+" · "+last.chapters[Math.min(p.ci,last.chapters.length-1)].t;
@@ -355,12 +391,13 @@ function openBook(b){
     btn.addEventListener("click",function(){ if(pos&&pos.ci===i) openChapter(i,pos.pi,pos.si,false); else openChapter(i,0,0,false); });
     li.appendChild(btn); ol.appendChild(li);
   });
+  offState(b);
   show("book");
 }
 function openAndPlay(b){ cur.book=b; var p=store.pos[b.id]||{ci:0,pi:0,si:0}; openChapter(p.ci,p.pi,p.si,true); }
 function openChapter(ci,pi,si,autoplay,keep){
   var b=cur.book;
-  if(!b.data){ stop(); ensureData(b,function(ok){ if(ok) openChapter(ci,pi,si,autoplay,keep); else { openBook(b); $("bvEd").textContent="Cartea nu s-a putut încărca. Verifică internetul și încearcă din nou."; } }); return; }
+  if(!b.data){ stop(); ensureData(b,function(ok){ if(ok) openChapter(ci,pi,si,autoplay,keep); else { openBook(b); $("bvEd").textContent="Cartea nu s-a putut încărca. Fără internet merg doar cărțile salvate pe telefon."; } }); return; }
   var was=playing; stop();
   ci=Math.max(0,Math.min(ci,b.chapters.length-1));
   var c=b.chapters[ci], ps=b.data[ci], lang=b.lang||"ro"; cur.ci=ci;
@@ -646,6 +683,21 @@ $("nextCh").addEventListener("click",function(){ openChapter(cur.ci+1,0,0,false)
 function applySize(){ document.documentElement.style.setProperty("--read-size",store.size+"px"); }
 $("smaller").addEventListener("click",function(){ store.size=Math.max(15,store.size-2); applySize(); save(); });
 $("bigger").addEventListener("click",function(){ store.size=Math.min(31,store.size+2); applySize(); save(); });
+$("offBtn").addEventListener("click",function(){
+  var b=cur.book, btn=this; if(!b||btn.disabled) return;
+  btn.disabled=true; btn.textContent="Se salvează…";
+  saveBook(b).then(function(){ offState(b); }).catch(function(){ btn.disabled=false; btn.textContent="Nu s-a putut salva. Verifică internetul și apasă din nou."; });
+});
+$("saveAll").addEventListener("click",function(){
+  var sa=this; if(sa.disabled) return;
+  var rest=books.filter(function(b){return !/^mine-/.test(b.id)}), i=0, failed=0;
+  sa.disabled=true; sa.__busy=true;
+  (function next(){
+    if(i>=rest.length){ sa.__busy=false; if(failed){ sa.disabled=false; sa.textContent=failed+" cărți nu s-au putut salva. Apasă din nou."; } tagSaved(); return; }
+    sa.textContent="Se salvează "+(i+1)+" din "+rest.length+"…";
+    saveBook(rest[i]).catch(function(){ failed++; }).then(function(){ i++; next(); });
+  })();
+});
 $("q").addEventListener("input",renderLibrary);
 $("chips").addEventListener("click",function(e){ var b=e.target.closest?e.target.closest("button"):null; if(!b) return; store.filter=b.dataset.l; save(); renderLibrary(); });
 $("voiceBtn").addEventListener("click",function(){ loadVoices(); $("scrim").hidden=false; $(bl()==="en"?"voiceEn":"voiceRo").focus(); });
